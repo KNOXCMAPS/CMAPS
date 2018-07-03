@@ -1,5 +1,6 @@
 #include "Adafruit_FONA.h"
 #include "Adafruit_FONA_3G.h"
+#include <stdlib.h>
 
 #define FONA_TX 2
 #define FONA_RX 3
@@ -13,26 +14,22 @@ SoftwareSerial *fonaSerial = &fonaSS;
 HardwareSerial *fonaSerial = &Serial1;
 #endif
 
-////////////  LCD I2C DISPLAY /////////////////////////
+#include <Arduino.h>
+#include <U8g2lib.h>
+
+#ifdef U8X8_HAVE_HW_SPI
+#include <SPI.h>
+#endif
+#ifdef U8X8_HAVE_HW_I2C
 #include <Wire.h>
-#include <LCD.h>
-#include <LiquidCrystal_I2C.h>
+#endif
 
-#define I2C_ADDR    0x3F // <<----- Add your address here.  Find it from I2C Scanner
-#define BACKLIGHT_PIN     3
-#define En_pin  2
-#define Rw_pin  1
-#define Rs_pin  0
-#define D4_pin  4
-#define D5_pin  5
-#define D6_pin  6
-#define D7_pin  7
+U8G2_SH1106_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE); //Using the page buffer part of this library, to be less RAM intensive (full buffer + FONA was exceeding the memory on the Arduino)
+                                                                             //Should RAM usage be a problem in the future, consider using the Uxgx part instead (loses some other graphical features, but even further reduced memory usage)
 
-LiquidCrystal_I2C  lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
+bool devMode = true; //Turns on debug messages to the OLED Display, consider keeping on all the time for feedback considerations?
 
-
-// IMPORTANT "DeviceUUID" defines the unique ID. LABEL THE ARDUINO UNIT with the number after upload.
-const int DeviceUUID = 502;
+const int DeviceUUID = 502; // IMPORTANT "DeviceUUID" defines the unique ID. LABEL THE ARDUINO UNIT with the number after upload.
 
 // Use this for FONA 800 and 808s
 //Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
@@ -49,6 +46,22 @@ int RestartCount;
 //    
 // If you don't save this as a .h, you will want to remove the default arguments    
 //     uncomment this first line, and swap it for the next.  I don't think keyword arguments compile in .pde files    
+
+void OLEDPrint(String text) { //Use for printing one line of text on the OLED display. Does not consider line length at all and will just print what fits within one line
+    const char* string1 = text.c_str(); //We must use character pointers since u8g2.drawStr() requires a character pointer in its parameters (not a string!), note that it will treat this pointer like a character array and iterate until it finds the null
+    u8g2.clear();
+      do {
+        u8g2.drawStr(0,12,string1);
+      } while ( u8g2.nextPage() );
+  }
+
+void debugPrint(String text) { //Call this when printing something of debug/devMode purpose to the OLED
+      if(devMode) {
+          OLEDPrint(text);  
+      }
+  }
+  
+
 char * floatToString(char * outstr, float value, int places, int minwidth, bool rightjustify=false) {   
     // this is used to write a float value to string, outstr.  oustr is also the return value.    
     int digit;    
@@ -134,16 +147,14 @@ char * floatToString(char * outstr, float value, int places, int minwidth, bool 
             outstr[c++] = ' ';
         }
     }
-
-
     outstr[c++] = '\0';
-    return outstr;
-    
+    return outstr;  
 }
 
-
-
 void setup() {
+  u8g2.begin();
+  u8g2.clear();
+  u8g2.setFont(u8g2_font_ncenB10_tr); //Many different fonts avaliable at https://github.com/olikraus/u8g2/wiki/fntlistall
   while (!Serial);
     
    // Auto restart
@@ -153,46 +164,46 @@ void setup() {
   Serial.begin(115200);
   Serial.println(F("CMAPS GPS sketch loaded"));
   Serial.println(F("Initializing....(May take 3 seconds)"));
+  debugPrint("Starting...");
 
   fonaSerial->begin(4800);
   if (! fona.begin(*fonaSerial)) {
     Serial.println(F("Couldn't find FONA"));
+    debugPrint("No FONA Found");
     while(1);
   }
   Serial.println(F("FONA is OK"));
+  debugPrint("FONA is OK");
   
   while (true) {
     uint8_t stat = fona.getNetworkStatus();
     if ((stat == 1) || (stat == 5)){
       Serial.print(F("Network associated!: "));
       Serial.println(stat);
+      debugPrint("Network Associated");
       break;
     }
     delay(500);
       Serial.print(F("waiting for network: "));
       Serial.println(stat);
+      debugPrint("Waiting for network");
   }
   
   Serial.println(F("Setting APN"));
+  debugPrint("Setting APN");
   fona.setGPRSNetworkSettings(F("internet")); //check your network provider
   fona.enableGPS(true);
   delay(5000); // change to 2000
   Serial.println(F("Setting GPRS status"));
+  debugPrint("Setting GPRS status");
   fona.enableGPRS(true);
   delay(5000);  //change to 10000
-
-  ////////////  LCD I2C DISPLAY /////////////////////////
-  lcd.begin(16,2); 
-  lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
-  lcd.setBacklight(HIGH);
-  lcd.home (); // go home
-  
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   float lat, lon, speed_kph, bearing, altitude;
   boolean didGetLock = fona.getGPS(&lat, &lon, &speed_kph, &bearing, &altitude);
+  
 
   if (didGetLock)
   {
@@ -201,26 +212,17 @@ void loop() {
     uint16_t len;
     uint16_t statuscode;
 
-    ////////////  LCD I2C DISPLAY /////////////////////////
-    
-    lcd.begin(16,2); 
-    lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
-    lcd.setBacklight(HIGH);
-    
-    //String lcdtopstring = "Lat: ";
-    //lcdtopstring += lat;
-    //String lcdbotstring = "Long: ";
-    //lcdbotstring += lon; 
-    //lcd.print(lcdtopstring); 
-    lcd.print("Lat:"); lcd.print(lat, 3); // displays lat to 5 decimal places
-    lcd.setCursor(0, 1); // Set cursor to bottom row
-    lcd.print("Lon:"); lcd.print(lon, 3); // displays lon to 5 decimal places
-    //lcd.print(lcdbotstring);
-    lcd.setCursor(0, 0); // Set cursor to top row again
-    //Next set cursor to second line display time
-
-    
-    //IMPORTANT "uuid=" defines the unique ID. LABEL THE ARDUINO UNIT with the number after upload.
+    u8g2.clear();
+    do {
+      char lati[10];
+      dtostrf(lat, 4, 6, lati); //effectively the same as floatToString() defined above, but keeps it in character array form instead of a string
+      u8g2.drawStr(0,12,"Lat:");
+      u8g2.drawStr(0,25, lati);
+      char longi[10]; //these are done immediately before the drawStr() because of strange memory glitches, and this was the only solution found
+      dtostrf(lon, 4, 6, longi); //a tad messy and unconventional, but gets the job done. Especially since these values are only used for printing on the OLED and not actually sent over 3G
+      u8g2.drawStr(0,38,"Long:"); //For dtostrf() documentation, search for "avr libc dtostrf", but there isn't very much
+      u8g2.drawStr(0,51, longi);
+    } while ( u8g2.nextPage() );
 
 // String url = "http://cmaps.knox.nsw.edu.au/location/push?uuid=1&latitude=-99&longitude=7777";
     String url = F("http://cmaps.knox.nsw.edu.au/location/push?");
@@ -236,7 +238,7 @@ void loop() {
     url += buff;
 
 //    boolean httpGetStartRes = fona.HTTP_GET_start(buff, &statuscode, &len);
-boolean httpGetStartRes = fona.HTTP_GET_start_From_String(&url, &statuscode, &len); //slightly changed to fix http issue MValent 17/3/2017
+    boolean httpGetStartRes = fona.HTTP_GET_start_From_String(&url, &statuscode, &len); //slightly changed to fix http issue MValent 17/3/2017
     fona.HTTP_GET_end();
 
     if (!httpGetStartRes)
@@ -244,24 +246,25 @@ boolean httpGetStartRes = fona.HTTP_GET_start_From_String(&url, &statuscode, &le
       RestartCount +=1;
       Serial.println("Restart Count: ");
       Serial.println( RestartCount);
-
-      ////////////  LCD I2C DISPLAY /////////////////////////
-
-      lcd.begin(16,2); 
-      lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
-      lcd.setBacklight(HIGH);
-      lcd.home (); // go home
-    
-     lcd.print("Lat:"); lcd.print(lat, 5); // displays lat to 5 decimal places
-    lcd.setCursor(0, 1); // Set cursor to bottom row
-    lcd.print("Lon:"); lcd.print(lon, 5); // displays lon to 5 decimal places
-    lcd.print("  F"); // F = Failed HTTP 
-    lcd.setCursor(0, 0); // Set cursor to top row again
-    //Next set cursor to second line display time
+      
+      u8g2.clear();
+      do {
+        char lati[10];
+        dtostrf(lat, 4, 6, lati);
+        u8g2.drawStr(0,12,"Lat:");
+        u8g2.drawStr(0,25, lati);
+        char longi[10];
+        dtostrf(lon, 4, 6, longi);
+        u8g2.drawStr(0,38,"Long:");
+        u8g2.drawStr(0,51, longi);
+        u8g2.drawStr(0, 64, "  F"); //Some remnant from previous LCD code? Kept here incase needed
+      } while ( u8g2.nextPage() );
+      
       
       if (RestartCount == 4) {
         RestartCount = 0;
         Serial.println("HTTP failure response, rebooting in 10s");
+        OLEDPrint("HTTP Failure, rebooting");
         delay(10000);
         asm volatile ("  jmp 0");
       }
@@ -281,15 +284,6 @@ boolean httpGetStartRes = fona.HTTP_GET_start_From_String(&url, &statuscode, &le
   }
   else {
     Serial.println("No lock");
-
-      ////////////  LCD I2C DISPLAY /////////////////////////
-
-      lcd.begin(16,2); 
-      lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
-      lcd.setBacklight(HIGH);
-      lcd.home (); // go home
-    
-      lcd.print("No lock."); 
-    
+    OLEDPrint("No Lock");
   }
 }
