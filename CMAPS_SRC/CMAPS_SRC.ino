@@ -1,8 +1,6 @@
 #include <Adafruit_FONA.h>
 
-
 #include "Adafruit_FONA.h"
-
 #include <stdlib.h>
 
 #define FONA_TX 2
