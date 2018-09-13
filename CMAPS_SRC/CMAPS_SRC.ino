@@ -1,5 +1,8 @@
+#include <Adafruit_FONA.h>
+
+
 #include "Adafruit_FONA.h"
-#include "Adafruit_FONA_3G.h"
+
 #include <stdlib.h>
 
 #define FONA_TX 2
@@ -28,6 +31,8 @@ U8G2_SH1106_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE); //U
                                                                              //Should RAM usage be a problem in the future, consider using the Uxgx part instead (loses some other graphical features, but even further reduced memory usage)
 
 bool devMode = true; //Turns on debug messages to the OLED Display, consider keeping on all the time for feedback considerations?
+
+using namespace std;
 
 const int DeviceUUID = 502; // IMPORTANT "DeviceUUID" defines the unique ID. LABEL THE ARDUINO UNIT with the number after upload.
 
@@ -154,7 +159,7 @@ char * floatToString(char * outstr, float value, int places, int minwidth, bool 
 void setup() {
   u8g2.begin();
   u8g2.clear();
-  u8g2.setFont(u8g2_font_ncenB10_tr); //Many different fonts avaliable at https://github.com/olikraus/u8g2/wiki/fntlistall
+  u8g2.setFont(u8g2_font_6x10_tr); //Many different fonts avaliable at https://github.com/olikraus/u8g2/wiki/fntlistall
   while (!Serial);
     
    // Auto restart
@@ -204,7 +209,7 @@ void loop() {
   float lat, lon, speed_kph, bearing, altitude;
   boolean didGetLock = fona.getGPS(&lat, &lon, &speed_kph, &bearing, &altitude);
   
-
+  
   if (didGetLock)
   {
     Serial.println(lat, 5); // the 4 gives us lat to four decimal places
@@ -223,6 +228,10 @@ void loop() {
       u8g2.drawStr(0,38,"Long:"); //For dtostrf() documentation, search for "avr libc dtostrf", but there isn't very much
       u8g2.drawStr(0,51, longi);
     } while ( u8g2.nextPage() );
+    delay(1000);
+    //m++;
+    //if ( m == 60 )
+      //m = 0;
 
 // String url = "http://cmaps.knox.nsw.edu.au/location/push?uuid=1&latitude=-99&longitude=7777";
     String url = F("http://cmaps.knox.nsw.edu.au/location/push?");
@@ -238,7 +247,9 @@ void loop() {
     url += buff;
 
 //    boolean httpGetStartRes = fona.HTTP_GET_start(buff, &statuscode, &len);
-    boolean httpGetStartRes = fona.HTTP_GET_start_From_String(&url, &statuscode, &len); //slightly changed to fix http issue MValent 17/3/2017
+    char url_chars[url.length()+1];
+    url.toCharArray(url_chars, url.length()+1);
+    boolean httpGetStartRes = fona.HTTP_GET_start(url_chars, &statuscode, &len); //slightly changed to fix http issue MValent 17/3/2017
     fona.HTTP_GET_end();
 
     if (!httpGetStartRes)
@@ -287,3 +298,4 @@ void loop() {
     OLEDPrint("No Lock");
   }
 }
+
