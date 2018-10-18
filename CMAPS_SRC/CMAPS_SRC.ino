@@ -266,7 +266,7 @@ void loop() {
         dtostrf(lon, 4, 6, longi);
         u8g2.drawStr(0,38,"Long:");
         u8g2.drawStr(0,51, longi);
-        u8g2.drawStr(0, 64, "  F"); //Some remnant from previous LCD code? Kept here incase needed
+        u8g2.drawStr(0, 64, "Send To Server Fail"); //Some remnant from previous LCD code? Kept here incase needed
       } while ( u8g2.nextPage() );
       
       
