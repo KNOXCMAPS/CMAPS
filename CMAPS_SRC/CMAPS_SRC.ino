@@ -191,12 +191,12 @@ void loop() {
     {
     u8x8.setCursor(0,2);
     u8x8.println("Sent!");
-   }
 
     // 5 minutes delay
     unsigned long start = millis();  
     while (millis() < ((start+300000))) {
       delay(60000);
-    }   
+    }  
+   }
   }
 }
