@@ -22,7 +22,7 @@ HardwareSerial *fonaSerial = &Serial1;
 #endif
 
 // IMPORTANT "DeviceUUID" defines the unique ID. LABEL THE ARDUINO UNIT with the number after upload.
-const int DeviceUUID = 102;
+const int DeviceUUID = 91;
 
 Adafruit_FONA_3G fona = Adafruit_FONA_3G(FONA_RST); 
 U8X8_SH1106_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE);   
@@ -125,18 +125,19 @@ char * floatToString(char * outstr, float value, int places, int minwidth, bool 
 
 
 void setup() {
-  while (!Serial);
+  pinMode(8,OUTPUT);
+  digitalWrite(8, HIGH);
 
   u8x8.begin();
   u8x8.setFont(u8x8_font_amstrad_cpc_extended_f);
   
   u8x8.clear();
-  u8x8.println("Starting...");
+  u8x8.println(F("Starting..."));
 
   fonaSerial->begin(4800);
   if (! fona.begin(*fonaSerial)) {
     u8x8.clear();
-    u8x8.println("No FONA");
+    u8x8.println(F("No FONA"));
     while(1);
   }
   
@@ -158,7 +159,7 @@ void loop() {
 
   if (!didGetLock) {
     u8x8.clear();
-    u8x8.println("No Lock");
+    u8x8.println(F("No Lock"));
     }
   else {
     uint16_t len;
@@ -171,14 +172,14 @@ void loop() {
     url += F("&latitude=");
 
     u8x8.clear();
-    char buff[25];
-    String printString = "Lat:";
+    char buff[10];
+    String printString = F("Lat:");
     floatToString(buff, lat , 5, 5);
     url += buff;
     printString += buff;
     u8x8.println(printString);
     url += F("&longitude=");
-    printString = "Long:";
+    printString = F("Long:");
     floatToString(buff, lon , 5, 5);
     url += buff;
     printString += buff;
@@ -189,8 +190,7 @@ void loop() {
 
     if (httpGetStartRes)
     {
-    u8x8.setCursor(0,2);
-    u8x8.println("Sent!");
+    u8x8.println(F("Sent!"));
 
     // 5 minutes delay
     unsigned long start = millis();  
